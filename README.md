@@ -40,6 +40,8 @@ Here you can find Postman collection of Capital.com Public API and files for Liv
 - [Postman - Importing data into Postman](https://learning.postman.com/docs/getting-started/importing-and-exporting-data/#importing-data-into-postman)
 - [Postman - Managing environments](https://learning.postman.com/docs/sending-requests/managing-environments/)
 
+## License
+See the [LICENSE](LICENSE.md) file for license rights and limitations (MIT).
 
 
 
