@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "eadf07e2-b186-4a1a-9ff1-2334176f54ae",
 		"name": "Capital.com Public API",
-		"description": "The Capital.com API allows direct access to the latest version of our trading engine.\n\n# General information\n\n*   Base URL: [https://api-capital.backend-capital.com/](https://api-capital.backend-capital.com/)\n*   Base demo URL: [https://demo-api-capital.backend-capital.com/](https://demo-api-capital.backend-capital.com/)\n*   In order to use the endpoints a session should be launched. This can be done using the `POST ​​/session` endpoint.\n*   Session is active for 10 minutes. In case your inactivity is longer than this period then an error will occur upon next request.\n*   The API covers the full range of available instruments, licences and trading functionality.\n    \n\n# Getting started\n\nTo use the API the following simple steps should be taken:\n\n*   [**Create a trading account**](http://capital.com/trading/signup)  \n    Note that a demo account can be used.\n*   **Turn on Two-Factor Authentication (2FA)**  \n    2FA should be turned on prior to API key generation. [Instruction for 2FA enabling](https://capital.zendesk.com/hc/en-us/articles/4403995863314-How-can-I-enable-2FA-).\n*   **Generate an API key**  \n    To generate the API key, go to Settings > API integrations > Generate new key. There you will need to enter the label of the key, set an optional expiration date, enter the 2FA code and that’s it.\n*   **You are all set!**\n    \n\n# Authentication\n\n## How to start new session?\n\nThere are 2 ways to start the session:\n\n*   Using your API key, login and password details.\n*   Using your API key, login and encrypted password details.\n    \n\n#### Using your API key, login and password details\n\nHere you should simply use the `POST /session` endpoint and mention the received in the platform’s Settings API key in the `X-CAP-API-KEY` header, login and password info in the `identifier` and `password` parameters. The value of the `encryptionKey` parameter should be `false`.\n\n#### Using your API key, login and encrypted password details\n\n*   First of all you should use the `GET ​/session​/encryptionKey` and mention the generated in the platform’s Settings API key in the `X-CAP-API-KEY` header. As a response you will receive the `encryptionKey` and `timeStamp` parameters;\n*   Using the received `encryptionKey` and `timeStamp` parameters you should encrypt your password using the AES encryption method.\n    \n\n**Encryption request example**:\n\n``` java\npublic static String encryptPassword(String encryptionKey, Long timestamp, String password) {\n    try {\n        byte[] input = stringToBytes(password + \"|\" + timestamp);\n        input = Base64.encodeBase64(input);\n        KeyFactory keyFactory = KeyFactory.getInstance(RSA_ALGORITHM);\n        PublicKey publicKey = keyFactory.generatePublic(new X509EncodedKeySpec(Base64.decodeBase64(stringToBytes(encryptionKey))));\n        Cipher cipher = Cipher.getInstance(PKCS1_PADDING_TRANSFORMATION);\n        cipher.init(Cipher.ENCRYPT_MODE, publicKey);\n        byte[] output = cipher.doFinal(input);\n        output = Base64.encodeBase64(output);\n        return bytesToString(output);\n    } catch (Exception e) {\n        throw new RuntimeException(e);\n    }\n}\n\n```\n\nEncrypted password example:\n\n``` java\nencryptionKey = \"MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1dOujgcFh/9n4JLJMY4VMWZ7aRrynwKXUC9RuoC8Qu5UOeskxgZ1q5DmAXjkes77KrLfFZYEKtrp2g1TB0MBkSALiyrG+Fl52vhET9/AWRhvHuFyskWI7tEtcGIaOB1FwR0EDO9bnylTaZ+Y9sPbLVA7loAtfaX3HW/TI9JDpdmgzXZ0KrwIxdMRzPxVqQXcA8yJL1m33pvo9mOJ0AsQ8FFuy+ctjI8l/8xUhe2Hk01rpMBXDwI1lSjnvuUUDvAtacxyYVlNsnRvbrMZYp7hyimm27RtvCUXhTX2A94tDB0MFLApURrki+tvTvw5ImDPN8qOdTUzbs8hNtVwTpSxPwIDAQAB\";\ntimestamp = 1647440528194;\npassword = \"1111qqqq\";\n// Result of password encryption with the encryptionKey\nencryptedPassword = \"hUxWlqKRhH6thdjJnR7DvdlGE7ABkcKHrzKDGeE7kQ7nKg91sw7BpYsLDqtxihnlHN2IEmFPZ/ZmOKBAwEAw9/vjELmAZDeKsu3Q6s+Koj4wt8giE1Sxv76JjjOB/667dEeL22IFO1rwTMZ1NS5DrfeYbTfOdQgA0v5eIOS3fH8Pp/mFHodibY28X+zIaNwk6Rcb49l6aiXwM1CAtDl359qK633a+sEB9TR0/C3EaRkuGg8wAQyQ0JERaSYOZ58Dx7pw//cmvk/U5dkQlgli2l6Ts2cMhqYXCD1ZlTDA/rLfl52lgnarfari3n0uh6LicmNeWXJBF5oxj3LCruVwMA==\";\n\n```\n\n*   Go to the `POST ​/session` endpoint, set `true` value for the `encryptionKey` parameter and mention the received in the platform’s Settings API key in the `X-CAP-API-KEY` header, login and prior encrypted password info in the `identifier` and `password` parameters\n    \n\n## After starting the session\n\nOn starting the session you will receive the `CST` and `X-SECURITY-TOKEN` parameters in the response headers. `CST` is an authorization token, `X-SECURITY-TOKEN` shows which financial account is used for the trades. These headers should be passed on subsequent requests to the API. Both tokens are valid for 10 minutes after the last use.\n\n# Symbology\n\n*   **Financial accounts**  \n    accountId is the ID of your financial account. Each financial account has its unique ID. To view the full list of the available financial accounts, use the `GET ​​/accounts` endpoint. To find out which financial account is used for trading operations in the API please go to the `GET ​/session` endpoint. To change the financial account use: `PUT ​/session`.\n*   **Epic**  \n    Epic is the name of the market pair. You can use the `GET /markets{?searchTerm}` endpoint to find the market pairs you are interested in. A simple market name like ‘Bitcoin’ or ‘BTC’ can be requested with the `searchTerm` parameter and you will receive the full list of the market pairs associated with it. The `GET ​/marketnavigation` endpoint can be used to obtain asset group names. These names can be used with the `GET ​​/marketnavigation​/{nodeId}` endpoint to view the list of assets under the corresponding group.\n*   **Watchlists**  \n    The Watchlist is the list of assets which can be seen and created on the platform. The `GET /watchlists` endpoint returns the existing watchlists on your account. Each watchlist has an id parameter which can be used to obtain the corresponding list of assets: `GET ​/watchlists​/{watchlistId}`\n    \n\n# Orders and positions\n\n*   When opening a position using the `POST /positions` endpoint a `dealReference` parameter is included in the response. However, a successful response does not always mean that the position has been successfully opened. The status of the position can be confirmed using `GET ​/confirms​/{dealReference}`. This will produce the status of the position together with the `affectedDeals` array. Note that several positions can be opened at a time: this info will be shown in the `affectedDeals` array.\n*   It is important to ensure that the correct trading mode is in use with the API. To find out which trading mode is set on your financial account use the `GET ​/accounts​/preferences` method. The `hedgingMode` parameter value shows whether the hedging mode is engaged. This value can be altered using endpoint: `PUT ​/accounts​/preferences`.\n*   The leverages set for trades can be obtained using the `GET ​​/accounts​/preferences` endpoint. To change leverages, use `PUT ​​/accounts​/preferences`.\n*   Note: Stop loss and take profit values cannot be set when conducting trades with real stocks.\n    \n\n# WebSocket API\n\nIn order to start using WebSocket connect to `wss://api-streaming-capital.backend-capital.com/connect`.\n\nIn order to keep the connection alive, ping service at least once every 10 minutes.\n\nMore information regarding the WebSocket API requests and responses parameters can be found in the table below:\n\n| **Parameter** | **Description** |\n| --- | --- |\n| destination | The subscription destination which performs as an analogue for the request endpoint in the REST API model. |\n| correlationId | Is set to understand for which request the message was received. Helps to track the correlation between the subscription destination and response. |\n| cst | Access token identifying the client. Can be received upon starting the session.  <br>Is equal to `CST` parameter. |\n| securityToken | Account token or account id identifying the client's current account. Can be received upon starting the session.  <br>Is equal to `X-SECURITY-TOKEN` parameter. |\n| payload | An object which contains the data regarding the corresponding markets. |\n\n## Subscribe to market data\n\n**Destination:** `marketData.subscribe`\n\nTo subscribe to the price updates by mentioning the epics  \nThe maximum number of epics: 40\n\n**Request message example:**\n\n``` java\n{\n    \"destination\": \"marketData.subscribe\",\n    \"correlationId\": \"1\",\n    \"cst\": \"zvkT26****nsHKk\",\n    \"securityToken\": \"g6K90****QKvCS7\",\n    \"payload\": {\n        \"epics\": [\n            \"OIL_CRUDE\"\n        ]\n    }\n}\n\n```\n\n**Example of the response message about successful subscription:**\n\n``` java\n{\n    \"status\": \"OK\",\n    \"destination\": \"marketData.subscribe\",\n    \"correlationId\": \"1\",\n    \"payload\": {\n        \"subscriptions\": {\n            \"OIL_CRUDE\": \"PROCESSED\"\n        }\n    }\n}\n\n```\n\n**Example of the response message with market data updates:**\n\n``` java\n{\n    \"status\": \"OK\",\n    \"destination\": \"quote\",\n    \"payload\": {\n        \"epic\": \"OIL_CRUDE\",\n        \"product\": \"CFD\",\n        \"bid\": 93.87,\n        \"bidQty\": 4976.0,\n        \"ofr\": 93.9,\n        \"ofrQty\": 5000.0,\n        \"timestamp\": 1660297190627\n    }\n}\n\n```\n\n## Unsubscribe from market data\n\n**Destination:** `marketData.unsubscribe`\n\nTo unsubscribe from the prices updates\n\n**Request message example:**\n\n``` java\n{\n    \"destination\": \"marketData.unsubscribe\",\n    \"correlationId\": \"2\",\n    \"cst\": \"zvkT26****nsHKk\",\n    \"securityToken\": \"g6K90****QKvCS7\",\n    \"payload\": {\n        \"epics\": [\n            \"OIL_CRUDE\"\n        ]\n    }\n}\n\n```\n\n**Example of the response message about successful unsubscription:**\n\n``` java\n{\n    \"status\": \"OK\",\n    \"destination\": \"marketData.unsubscribe\",\n    \"correlationId\": \"2\",\n    \"payload\": {\n        \"subscriptions\": {\n            \"OIL_CRUDE\": \"PROCESSED\"\n        }\n    }\n}\n\n```\n\n## Ping the service\n\n**Destination:** `ping`\n\nTo ping the service for keeping the connection alive\n\n**Request message example:**\n\n``` java\n{\n    \"destination\": \"ping\",\n    \"correlationId\": \"3\",\n    \"cst\": \"zvkT26****nsHKk\",\n    \"securityToken\": \"g6K90****QKvCS7\"\n}\n\n```\n\n**Response message example:**\n\n``` java\n{\n    \"status\": \"OK\",\n    \"destination\": \"ping\",\n    \"correlationId\": \"3\",\n    \"payload\": {}\n}\n\n```",
+		"description": "The Capital.com API allows direct access to the latest version of our trading engine.\n\nYou can find our Postman Collection here: [https://github.com/capital-com-sv/capital-api-postman](https://github.com/capital-com-sv/capital-api-postman)\n\n# General information\n\n- Base URL: [https://api-capital.backend-capital.com/](https://api-capital.backend-capital.com/)\n- Base demo URL: [https://demo-api-capital.backend-capital.com/](https://demo-api-capital.backend-capital.com/)\n- In order to use the endpoints a session should be launched. This can be done using the `POST ​​/session` endpoint.\n- Session is active for 10 minutes. In case your inactivity is longer than this period then an error will occur upon next request.\n- The API covers the full range of available instruments, licences and trading functionality.\n    \n\n# Getting started\n\nTo use the API the following simple steps should be taken:\n\n- [**Create a trading account**](http://capital.com/trading/signup)  \n    Note that a demo account can be used.\n- **Turn on Two-Factor Authentication (2FA)**  \n    2FA should be turned on prior to API key generation. [Instruction for 2FA enabling](https://capital.zendesk.com/hc/en-us/articles/4403995863314-How-can-I-enable-2FA-).\n- **Generate an API key**  \n    To generate the API key, go to Settings > API integrations > Generate new key. There you will need to enter the label of the key, set an optional expiration date, enter the 2FA code and that’s it.\n- **You are all set!**\n    \n\n# Authentication\n\n## How to start new session?\n\nThere are 2 ways to start the session:\n\n- Using your API key, login and password details.\n- Using your API key, login and encrypted password details.\n    \n\n#### Using your API key, login and password details\n\nHere you should simply use the `POST /session` endpoint and mention the received in the platform’s Settings API key in the `X-CAP-API-KEY` header, login and password info in the `identifier` and `password` parameters. The value of the `encryptedPassword` parameter should be `false`.\n\n#### Using your API key, login and encrypted password details\n\n- First of all you should use the `GET ​/session​/encryptionKey` and mention the generated in the platform’s Settings API key in the `X-CAP-API-KEY` header. As a response you will receive the `encryptionKey` and `timeStamp` parameters;\n- Using the received `encryptionKey` and `timeStamp` parameters you should encrypt your password using the AES encryption method.\n    \n\n**Encryption request example**:\n\n``` java\npublic static String encryptPassword(String encryptionKey, Long timestamp, String password) {\n    try {\n        byte[] input = stringToBytes(password + \"|\" + timestamp);\n        input = Base64.encodeBase64(input);\n        KeyFactory keyFactory = KeyFactory.getInstance(RSA_ALGORITHM);\n        PublicKey publicKey = keyFactory.generatePublic(new X509EncodedKeySpec(Base64.decodeBase64(stringToBytes(encryptionKey))));\n        Cipher cipher = Cipher.getInstance(PKCS1_PADDING_TRANSFORMATION);\n        cipher.init(Cipher.ENCRYPT_MODE, publicKey);\n        byte[] output = cipher.doFinal(input);\n        output = Base64.encodeBase64(output);\n        return bytesToString(output);\n    } catch (Exception e) {\n        throw new RuntimeException(e);\n    }\n}\n\n```\n\nEncrypted password example:\n\n``` java\nencryptionKey = \"MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1dOujgcFh/9n4JLJMY4VMWZ7aRrynwKXUC9RuoC8Qu5UOeskxgZ1q5DmAXjkes77KrLfFZYEKtrp2g1TB0MBkSALiyrG+Fl52vhET9/AWRhvHuFyskWI7tEtcGIaOB1FwR0EDO9bnylTaZ+Y9sPbLVA7loAtfaX3HW/TI9JDpdmgzXZ0KrwIxdMRzPxVqQXcA8yJL1m33pvo9mOJ0AsQ8FFuy+ctjI8l/8xUhe2Hk01rpMBXDwI1lSjnvuUUDvAtacxyYVlNsnRvbrMZYp7hyimm27RtvCUXhTX2A94tDB0MFLApURrki+tvTvw5ImDPN8qOdTUzbs8hNtVwTpSxPwIDAQAB\";\ntimestamp = 1647440528194;\npassword = \"1111qqqq\";\n// Result of password encryption with the encryptionKey\nencryptedPassword = \"hUxWlqKRhH6thdjJnR7DvdlGE7ABkcKHrzKDGeE7kQ7nKg91sw7BpYsLDqtxihnlHN2IEmFPZ/ZmOKBAwEAw9/vjELmAZDeKsu3Q6s+Koj4wt8giE1Sxv76JjjOB/667dEeL22IFO1rwTMZ1NS5DrfeYbTfOdQgA0v5eIOS3fH8Pp/mFHodibY28X+zIaNwk6Rcb49l6aiXwM1CAtDl359qK633a+sEB9TR0/C3EaRkuGg8wAQyQ0JERaSYOZ58Dx7pw//cmvk/U5dkQlgli2l6Ts2cMhqYXCD1ZlTDA/rLfl52lgnarfari3n0uh6LicmNeWXJBF5oxj3LCruVwMA==\";\n\n```\n\n- Go to the `POST ​/session` endpoint, set `true` value for the `encryptedPassword` parameter and mention the received in the platform’s Settings API key in the `X-CAP-API-KEY` header, login and prior **encrypted** password info in the `identifier` and `password` parameters\n    \n\n## After starting the session\n\nOn starting the session you will receive the `CST` and `X-SECURITY-TOKEN` parameters in the response headers. `CST` is an authorization token, `X-SECURITY-TOKEN` shows which financial account is used for the trades. These headers should be passed on subsequent requests to the API. Both tokens are valid for 10 minutes after the last use.\n\n# Symbology\n\n- **Financial accounts**  \n    accountId is the ID of your financial account. Each financial account has its unique ID. To view the full list of the available financial accounts, use the `GET ​​/accounts` endpoint. To find out which financial account is used for trading operations in the API please go to the `GET ​/session` endpoint. To change the financial account use: `PUT ​/session`.\n- **Epic**  \n    Epic is the name of the market pair. You can use the `GET /markets{?searchTerm}` endpoint to find the market pairs you are interested in. A simple market name like ‘Bitcoin’ or ‘BTC’ can be requested with the `searchTerm` parameter and you will receive the full list of the market pairs associated with it. The `GET ​/marketnavigation` endpoint can be used to obtain asset group names. These names can be used with the `GET ​​/marketnavigation​/{nodeId}` endpoint to view the list of assets under the corresponding group.\n- **Watchlists**  \n    The Watchlist is the list of assets which can be seen and created on the platform. The `GET /watchlists` endpoint returns the existing watchlists on your account. Each watchlist has an id parameter which can be used to obtain the corresponding list of assets: `GET ​/watchlists​/{watchlistId}`\n    \n\n# Orders and positions\n\n- When opening a position using the `POST /positions` endpoint a `dealReference` parameter is included in the response. However, a successful response does not always mean that the position has been successfully opened. The status of the position can be confirmed using `GET ​/confirms​/{dealReference}`. This will produce the status of the position together with the `affectedDeals` array. Note that several positions can be opened at a time: this info will be shown in the `affectedDeals` array.\n- It is important to ensure that the correct trading mode is in use with the API. To find out which trading mode is set on your financial account use the `GET ​/accounts​/preferences` method. The `hedgingMode` parameter value shows whether the hedging mode is engaged. This value can be altered using endpoint: `PUT ​/accounts​/preferences`.\n- The leverages set for trades can be obtained using the `GET ​​/accounts​/preferences` endpoint. To change leverages, use `PUT ​​/accounts​/preferences`.\n- Note: Stop loss and take profit values cannot be set when conducting trades with real stocks.\n    \n\n# FAQ\n\n## Which kind of APIs do you have?\n\nOn Capital.com we suggest both REST and WebSocket API. In case of WebSocket API real-time prices updates for max 40 instruments at a time.\n\n## Do you have any limitations on your API?\n\nYes, we do have several limitations in our Capital.com API. Here is the list:\n\n- The maximum request rate is **10 per second**.\n- WebSocket session duration is **10 minutes**. In order to keep the session live use the ping endpoint.\n- REST session is also active for **10 minutes**. In case your inactivity is longer than this period then an error will occur upon next request\n- `POST /positions` and `POST /workingorders` endpoint limit is **1000 requests per hour** in the Demo account.\n- The WebSocket API allows subscription to a maximum of **40 instruments**.\n- WebSocket streaming falls off when the financial account is changed with the help of the `PUT​ /session` endpoint\n    \n\n## Does your API support all the instruments?\n\nYes, Capital.com API supports all of the instruments which you can find on the platform.\n\n## How to start using Capital.com API?\n\nIn order to start using our Capital.com API you should first of all generate an API key in the `Settings` > `API integrations` section on the platform. Upon doing so you will be able to use this key and your account credentials to authorise for the API usage with the `POST /session` method.\n\n## Can I use Capital.com API on the Demo account?\n\nSure. In order to use your Demo account with our API you should mention the following service as Base URL: [https://demo-api-capital.backend-capital.com/](https://demo-api-capital.backend-capital.com/)\n\n## How to generate an API key?\n\nIn order to generate an API Key you should log in to your account, go to the `Settings` > `API integrations` section and click on the `Generate API key` button.\n\nIn case your 2FA is turned off you will be asked to switch on this function to ensure safe and secure keys usage.\n\nNext you will be presented with the `Generate new key` window where you will be able to name your API Key and set an expiration date (if needed). By default the validity of the API key is 1 year.\n\nAfter that you should enter your 2FA code and wait for an API Key to be generated. Once an API Key is generated you will see an API Key itself. Please, make sure to save this data as it is shown only once.\n\nCongratulations. You should have successfully managed to integrate our API functionality. In case you have any questions - feel free to contact us ([support@capital.com](mailto:support@capital.com)). We will be glad to help you.\n\n## Which kind of API Key privileges can I have?\n\nCurrently we have only 1 type of the API Keys privileges which allows trading. No Read Only API Keys can be generated.\n\n## What does a Custom password field mean during the API key generation process?\n\nA `Custom password` field allows you to generate a separate password for your API key in order you could use it instead of the account password during starting a session with the `POST /session` method. If you set this `Custom password` for the API key you can use only it for starting a session with this particular key.\n\n## How can I create an API key if I registered my account on Capital.com using Facebook, Gmail or Apple ID accounts?\n\nIn case you used Facebook, Gmail or Apple ID accounts for creating your account on the Capital.com platform then you can create an API key with a `Custom password` to it. You should create this password by yourself during the API key generation process and it can be used in order to start a session with the API usage. Mention the set password as a value for the `password` parameter in the `POST /session` method to launch a session. Also mention the email from the Facebook, Gmail or Apple ID accounts as a value for the identifier parameter.\n\nPlease note that you should create passwords for all of your subsequent API keys until the moment you set a password to your Capital.com account. After that moment you can either proceed to create Custom passwords for your API keys or use an account password if you haven't generated a custom one for this API key prior.\n\n## How can I pause or launch an API key?\n\nIn order to pause or launch an API key you can click on the `Pause` or `Play` icons next to the API key in the `Settings` > `API integrations` section. This functionality allows you to either disable or enable a key when you need to do it without deleting a key itself and re-generating a new one.\n\n## How can I view more information about the API key?\n\nIn order to view more information about the API key you have generated please click on an `Eye` icon next to the key in the `Settings` > `API integrations` section.\n\n## I don't see my API Key. What could have happened?\n\nThere are 2 reasons for your API Key to be deleted:\n\n- your account status has changed to either `SUSPENDED` or `BLOCKED`;\n- your API Key has reached an expiration date.\n    \n\nIn all other cases your API Keys should work as expected.\n\n## I see \"****\" instead of my API Key. How can I find a full API Key information?\n\nAccording to the existing procedure the only moment you can see your API Key is during its creation. After that it will always be masked.\n\nIn case you have lost your API Key or didn't record it, you will have to create a new one and make sure that you store a new key in a secure place.\n\n# WebSocket API\n\nIn order to start using WebSocket connect to `wss://api-streaming-capital.backend-capital.com/connect`.\n\nIn order to keep the connection alive, ping service at least once every 10 minutes.\n\nMore information regarding the WebSocket API requests and responses parameters can be found in the table below:\n\n| **Parameter** | **Description** |\n| --- | --- |\n| destination | The subscription destination which performs as an analogue for the request endpoint in the REST API model. |\n| correlationId | Is set to understand for which request the message was received. Helps to track the correlation between the subscription destination and response. |\n| cst | Access token identifying the client. Can be received upon starting the session.  <br>Is equal to `CST` parameter. |\n| securityToken | Account token or account id identifying the client's current account. Can be received upon starting the session.  <br>Is equal to `X-SECURITY-TOKEN` parameter. |\n| payload | An object which contains the data regarding the corresponding markets. |\n\n## Subscribe to market data\n\n**Destination:** `marketData.subscribe`\n\nSubscribe to the price updates by mentioning the epics  \nThe maximum number of epics: 40\n\n**Request message example:**\n\n``` java\n{\n    \"destination\": \"marketData.subscribe\",\n    \"correlationId\": \"1\",\n    \"cst\": \"zvkT26****nsHKk\",\n    \"securityToken\": \"g6K90****QKvCS7\",\n    \"payload\": {\n        \"epics\": [\n            \"OIL_CRUDE\"\n        ]\n    }\n}\n\n```\n\n**Example of the response message about successful subscription:**\n\n``` java\n{\n    \"status\": \"OK\",\n    \"destination\": \"marketData.subscribe\",\n    \"correlationId\": \"1\",\n    \"payload\": {\n        \"subscriptions\": {\n            \"OIL_CRUDE\": \"PROCESSED\"\n        }\n    }\n}\n\n```\n\n**Example of the response message with market data updates:**\n\n``` java\n{\n    \"status\": \"OK\",\n    \"destination\": \"quote\",\n    \"payload\": {\n        \"epic\": \"OIL_CRUDE\",\n        \"product\": \"CFD\",\n        \"bid\": 93.87,\n        \"bidQty\": 4976.0,\n        \"ofr\": 93.9,\n        \"ofrQty\": 5000.0,\n        \"timestamp\": 1660297190627\n    }\n}\n\n```\n\n## Unsubscribe from market data\n\n**Destination:** `marketData.unsubscribe`\n\nUnsubscribe from the prices updates\n\n**Request message example:**\n\n``` java\n{\n    \"destination\": \"marketData.unsubscribe\",\n    \"correlationId\": \"2\",\n    \"cst\": \"zvkT26****nsHKk\",\n    \"securityToken\": \"g6K90****QKvCS7\",\n    \"payload\": {\n        \"epics\": [\n            \"OIL_CRUDE\"\n        ]\n    }\n}\n\n```\n\n**Example of the response message about successful unsubscription:**\n\n``` java\n{\n    \"status\": \"OK\",\n    \"destination\": \"marketData.unsubscribe\",\n    \"correlationId\": \"2\",\n    \"payload\": {\n        \"subscriptions\": {\n            \"OIL_CRUDE\": \"PROCESSED\"\n        }\n    }\n}\n\n```\n\n## Subscribe to OHLC market data\n\n**Destination:** `OHLCMarketData.subscribe`\n\nSubscribe to the candlestick bars updates by mentioning the epics, resolutions and bar type\n\nList of request payload parameters:\n\n| **Parameter** | **Format** | **Required?** | **Description** |\n| --- | --- | --- | --- |\n| epics | string\\[\\] | YES | The list of instruments epics  <br>  <br>Notes:  <br>\\- Max number of epics is limited to 40 |\n| resolutions | string\\[\\] | NO | The list of resolutions of requested prices  <br>  <br>Notes:  <br>\\- Default value: `MINUTE`  <br>\\- Possible values: `MINUTE`, `MINUTE_5`, `MINUTE_15`, `MINUTE_30`, `HOUR`, `HOUR_4`, `DAY`, `WEEK` |\n| type | string | NO | Type of candlesticks  <br>  <br>Notes:  <br>\\- Default value: `classic`  <br>\\- Possible values: `classic`, `heikin-ashi` |\n\n**Request message example:**\n\n``` java\n{\n    \"destination\": \"OHLCMarketData.subscribe\",\n    \"correlationId\": \"3\",\n    \"cst\": \"zvkT26****nsHKk\",\n    \"securityToken\": \"g6K90****QKvCS7\",\n    \"payload\": {\n        \"epics\": [\n            \"OIL_CRUDE\",\n            \"AAPL\"\n        ],\n        \"resolutions\": [\n            \"MINUTE_5\"\n        ],\n        \"type\": \"classic\"\n    }\n}\n\n```\n\n**Example of the response message about successful subscription:**\n\n``` java\n{\n    \"status\": \"OK\",\n    \"destination\": \"OHLCMarketData.subscribe\",\n    \"correlationId\": \"3\",\n    \"payload\": {\n        \"subscriptions\": {\n            \"OIL_CRUDE:MINUTE_5:classic\": \"PROCESSED\",\n            \"AAPL:MINUTE_5:classic\": \"PROCESSED\"\n        }\n    }\n}\n\n```\n\n**Example of the response message with market data updates:**\n\n``` java\n{\n    \"status\": \"OK\",\n    \"destination\": \"ohlc.event\",\n    \"payload\": {\n        \"resolution\": \"MINUTE_5\",\n        \"epic\": \"AAPL\",\n        \"type\": \"classic\",\n        \"priceType\": \"bid\",\n        \"t\": 1671714000000,\n        \"h\": 134.95,\n        \"l\": 134.85,\n        \"o\": 134.86,\n        \"c\": 134.88\n    }\n}\n\n```\n\n## Unsubscribe from OHLC market data\n\n**Destination:** `OHLCMarketData.unsubscribe`\n\nUnsubscribe from candlestick bars updates for specific epics, resolutions and bar types.\n\nThe general principle is as follows: you unsubscribe from the parameter you mention in the request. In case you mention epic you unsubscribe from all of the corresponding bar types and resolutions.\n\nList of request payload parameters:\n\n| **Parameter** | **Format** | **Required?** | **Description** |\n| --- | --- | --- | --- |\n| epics | string\\[\\] | YES | The list of instruments epics to be unsubscribed |\n| resolutions | string\\[\\] | NO | The list of price resolutions to be unsubscribed  <br>  <br>Notes:  <br>\\- Default value: All possible values  <br>\\- Possible values: `MINUTE`, `MINUTE_5`, `MINUTE_15`, `MINUTE_30`, `HOUR`, `HOUR_4`, `DAY`, `WEEK` |\n| types | string\\[\\] | NO | Types of candlesticks to be unsubscribed  <br>  <br>Notes:  <br>\\- Default value: all possible values  <br>\\- Possible values: `classic`, `heikin-ashi` |\n\n**Request message example:**\n\n``` java\n// Unsubscribe from candlestick bars updates of OIL_CRUDE epic with MINUTE and MINUTE_5 resolutions and heikin-ashi candlestick type\n{\n    \"destination\": \"OHLCMarketData.unsubscribe\",\n    \"correlationId\": \"4\",\n    \"cst\": \"zvkT26****nsHKk\",\n    \"securityToken\": \"g6K90****QKvCS7\",\n    \"payload\": {\n        \"epics\": [\n            \"OIL_CRUDE\"\n        ],\n        \"resolutions\": [\n            \"MINUTE\",\n            \"MINUTE_5\"\n        ],\n        \"types\": [\n            \"heikin-ashi\"\n        ]\n    }\n}\n\n```\n\n**Example of the response message about successful unsubscription:**\n\n``` java\n{\n    \"status\": \"OK\",\n    \"destination\": \"OHLCMarketData.unsubscribe\",\n    \"correlationId\": \"4\",\n    \"payload\": {\n        \"subscriptions\": {\n            \"OIL_CRUDE:MINUTE_5:heikin-ashi\": \"PROCESSED\",\n            \"OIL_CRUDE:MINUTE:heikin-ashi\": \"PROCESSED\"\n        }\n    }\n}\n\n```\n\n## Ping the service\n\n**Destination:** `ping`\n\nPing the service for keeping the connection alive\n\n**Request message example:**\n\n``` java\n{\n    \"destination\": \"ping\",\n    \"correlationId\": \"5\",\n    \"cst\": \"zvkT26****nsHKk\",\n    \"securityToken\": \"g6K90****QKvCS7\"\n}\n\n```\n\n**Response message example:**\n\n``` java\n{\n    \"status\": \"OK\",\n    \"destination\": \"ping\",\n    \"correlationId\": \"5\",\n    \"payload\": {}\n}\n\n```",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
 		"_exporter_id": "21320616"
 	},
@@ -861,7 +861,7 @@
 								}
 							],
 							"cookie": [],
-							"body": "{\n    \"errorCode\": \"error.security.api-key-missing\"\n}"
+							"body": "{\n    \"errorCode\": \"error.null.api.key\"\n}"
 						},
 						{
 							"name": "Error: Invalid credentials",
@@ -956,7 +956,7 @@
 								}
 							],
 							"cookie": [],
-							"body": "{\n    \"errorCode\": \"error.security.invalid-details\"\n}"
+							"body": "{\n    \"errorCode\": \"error.invalid.details\"\n}"
 						}
 					]
 				},
@@ -1229,7 +1229,7 @@
 								}
 							],
 							"cookie": [],
-							"body": "{\n    \"errorCode\": \"error.switch.invalid-accountId\"\n}"
+							"body": "{\n    \"errorCode\": \"error.invalid.accountId\"\n}"
 						}
 					]
 				},
@@ -1901,7 +1901,7 @@
 								}
 							],
 							"cookie": [],
-							"body": "{\n    \"errorCode\": \"error.settings.leverage.value.invalid\"\n}"
+							"body": "{\n    \"errorCode\": \"error.invalid.leverage.value\"\n}"
 						}
 					]
 				},
@@ -1976,7 +1976,7 @@
 								}
 							]
 						},
-						"description": "Returns the account activity history\n\nAll query parameters are optional for this request\n\nPossible enum values for parameters in FIQL filter:\n\n| **Parameter** | **ENUM** |\n| --- | --- |\n| source | `CLOSE_OUT`, `DEALER`, `SL`, `SYSTEM`, `TP`, `USER` |\n| status | `ACCEPTED`, `REJECTED`, `UNKNOWN` |\n| type | `EDIT_STOP_AND_LIMIT`, `POSITION`, `SYSTEM`, `WORKING_ORDER` |"
+						"description": "Returns the account activity history\n\nAll query parameters are optional for this request\n\nPossible enum values for parameters in FIQL filter:\n\n| **Parameter** | **ENUM** |\n| --- | --- |\n| source | `CLOSE_OUT`, `DEALER`, `SL`, `SYSTEM`, `TP`, `USER` |\n| status | `ACCEPTED`, `CREATED`, `EXECUTED`, `EXPIRED`, `REJECTED`, `MODIFIED`, `MODIFY_REJECT`, `CANCELLED`, `CANCEL_REJECT`, `UNKNOWN` |\n| type | `EDIT_STOP_AND_LIMIT`, `POSITION`, `SYSTEM`, `WORKING_ORDER` |"
 					},
 					"response": [
 						{
@@ -2480,7 +2480,7 @@
 								{
 									"key": "type",
 									"value": "DEPOSIT",
-									"description": "Transaction type. Possible value: DEPOSIT, WITHDRAWAL, REFUND, WITHDRAWAL_MONEY_BACK, TRADE, SWAP, TRADE_COMMISSION, TRADE_COMMISSION_GSL, CONVERT, NEGATIVE_BALANCE_PROTECTION, REIMBURSEMENT, TRADE_CORRECTION, CHARGEBACK, ADJUSTMENT, DIVIDEND, ACCOUNT_CLOSURE, BONUS, TRANSFER"
+									"description": "Transaction type. Possible values: INACTIVITY_FEE, RESERVE, VOID, UNRESERVE, WRITE_OFF_OR_CREDIT, CREDIT_FACILITY, FX_COMMISSION, COMPLAINT_SETTLEMENT, DEPOSIT, WITHDRAWAL, REFUND, WITHDRAWAL_MONEY_BACK, TRADE, SWAP, TRADE_COMMISSION, TRADE_COMMISSION_GSL, NEGATIVE_BALANCE_PROTECTION, TRADE_CORRECTION, CHARGEBACK, ADJUSTMENT, BONUS, TRANSFER, CORPORATE_ACTION, CONVERSION, REBATE, TRADE_SLIPPAGE_PROTECTION"
 								}
 							]
 						},
@@ -2506,11 +2506,16 @@
 									}
 								],
 								"url": {
-									"raw": "{{url}}/history/transactions",
+									"raw": "https://demo-api-capital.backend-capital.com/api/v1/history/transactions",
+									"protocol": "https",
 									"host": [
-										"{{url}}"
+										"demo-api-capital",
+										"backend-capital",
+										"com"
 									],
 									"path": [
+										"api",
+										"v1",
 										"history",
 										"transactions"
 									]
@@ -2586,7 +2591,7 @@
 								}
 							],
 							"cookie": [],
-							"body": "{\n    \"transactions\": [\n        {\n            \"date\": \"2022-04-04T19:51:05.648\",\n            \"dateUtc\": \"2022-04-04T16:51:05.648\",\n            \"instrumentName\": \"NATURALGAS\",\n            \"transactionType\": \"TRADE\",\n            \"reference\": \"12345678\",\n            \"size\": \"1.05\",\n            \"currency\": \"USD\"\n        },\n        {\n            \"date\": \"2022-04-04T19:51:00.788\",\n            \"dateUtc\": \"2022-04-04T16:51:00.788\",\n            \"instrumentName\": \"US500\",\n            \"transactionType\": \"TRADE\",\n            \"reference\": \"87654321\",\n            \"size\": \"416.0\",\n            \"currency\": \"USD\"\n        }\n    ]\n}"
+							"body": "{\n    \"transactions\": [\n        {\n            \"date\": \"2022-04-04T19:51:05.648\",\n            \"dateUtc\": \"2022-04-04T16:51:05.648\",\n            \"instrumentName\": \"NATURALGAS\",\n            \"transactionType\": \"TRADE\",\n            \"note\": \"Trade closed\",\n            \"reference\": \"12345678\",\n            \"size\": \"1.05\",\n            \"currency\": \"USD\"\n        },\n        {\n            \"date\": \"2022-04-04T19:51:00.788\",\n            \"dateUtc\": \"2022-04-04T16:51:00.788\",\n            \"instrumentName\": \"US500\",\n            \"transactionType\": \"TRADE\",\n            \"note\": \"Trade closed\",\n            \"reference\": \"87654321\",\n            \"size\": \"416.0\",\n            \"currency\": \"USD\"\n        }\n    ]\n}"
 						},
 						{
 							"name": "Success: Filter list within last 30 second by type",
@@ -2699,7 +2704,7 @@
 								}
 							],
 							"cookie": [],
-							"body": "{\n    \"transactions\": [\n        {\n            \"date\": \"2022-04-04T19:54:27.568\",\n            \"dateUtc\": \"2022-04-04T16:54:27.568\",\n            \"transactionType\": \"DEPOSIT\",\n            \"reference\": \"12345678\",\n            \"size\": \"20.0\",\n            \"currency\": \"USD\"\n        }\n    ]\n}"
+							"body": "{\n    \"transactions\": [\n        {\n            \"date\": \"2022-04-04T19:54:27.568\",\n            \"dateUtc\": \"2022-04-04T16:54:27.568\",\n            \"transactionType\": \"DEPOSIT\",\n            \"note\": \"Deposit\",\n            \"reference\": \"12345678\",\n            \"size\": \"20.0\",\n            \"currency\": \"USD\"\n        }\n    ]\n}"
 						}
 					]
 				}
@@ -2850,7 +2855,7 @@
 										}
 									],
 									"cookie": [],
-									"body": "{\n    \"positions\": [\n        {\n            \"position\": {\n                \"contractSize\": 1,\n                \"createdDate\": \"2022-04-05T12:46:01.872\",\n                \"createdDateUTC\": \"2022-04-05T09:46:01.872\",\n                \"dealId\": \"00018387-0001-54c4-0000-000080560014\",\n                \"dealReference\": \"p_00018387-0001-54c4-0000-000080560014\",\n                \"size\": 1,\n                \"direction\": \"BUY\",\n                \"level\": 5.911,\n                \"currency\": \"USD\",\n                \"guaranteedStop\": false\n            },\n            \"market\": {\n                \"instrumentName\": \"Natural Gas\",\n                \"expiry\": \"-\",\n                \"marketStatus\": \"TRADEABLE\",\n                \"epic\": \"NATURALGAS\",\n                \"instrumentType\": \"COMMODITIES\",\n                \"lotSize\": 1000,\n                \"high\": 6.192,\n                \"low\": 5.799,\n                \"percentageChange\": 6.7351,\n                \"netChange\": 0.387,\n                \"bid\": 6.114,\n                \"offer\": 6.12,\n                \"updateTime\": \"2022-04-05T17:41:38.492\",\n                \"updateTimeUTC\": \"2022-04-05T14:41:38.492\",\n                \"delayTime\": 0,\n                \"streamingPricesAvailable\": true,\n                \"scalingFactor\": 1\n            }\n        },\n        {\n            \"position\": {\n                \"contractSize\": 1,\n                \"createdDate\": \"2022-04-05T12:46:10.139\",\n                \"createdDateUTC\": \"2022-04-05T09:46:10.139\",\n                \"dealId\": \"004d0627-0001-54c4-0000-000080560017\",\n                \"dealReference\": \"p_004d0627-0001-54c4-0000-000080560017\",\n                \"size\": 1,\n                \"direction\": \"BUY\",\n                \"level\": 4577.6,\n                \"currency\": \"USD\",\n                \"controlledRisk\": false\n            },\n            \"market\": {\n                \"instrumentName\": \"S&P 500\",\n                \"expiry\": \"2022-02-01\",\n                \"marketStatus\": \"TRADEABLE\",\n                \"epic\": \"US500\",\n                \"instrumentType\": \"INDICES\",\n                \"lotSize\": 1,\n                \"high\": 4596.5,\n                \"low\": 4556.7,\n                \"percentageChange\": 0.2881,\n                \"netChange\": 13.1,\n                \"bid\": 4559.7,\n                \"offer\": 4560.3,\n                \"updateTime\": \"2022-04-05T17:41:37.991\",\n                \"updateTimeUTC\": \"2022-04-05T14:41:37.991\",\n                \"delayTime\": 0,\n                \"streamingPricesAvailable\": true,\n                \"scalingFactor\": 1\n            }\n        }\n    ]\n}"
+									"body": "{\n    \"positions\": [\n        {\n            \"position\": {\n                \"contractSize\": 1,\n                \"createdDate\": \"2022-04-05T12:46:01.872\",\n                \"createdDateUTC\": \"2022-04-05T09:46:01.872\",\n                \"dealId\": \"00018387-0001-54c4-0000-000080560014\",\n                \"dealReference\": \"p_00018387-0001-54c4-0000-000080560014\",\n                \"workingOrderId\": \"00018387-0001-54c4-0000-000080560012\",\n                \"size\": 10.0,\n                \"leverage\": 20,\n                \"upl\": -0.0500,\n                \"direction\": \"BUY\",\n                \"level\": 2.764,\n                \"currency\": \"USD\",\n                \"guaranteedStop\": false\n            },\n            \"market\": {\n                \"instrumentName\": \"Natural Gas\",\n                \"expiry\": \"-\",\n                \"marketStatus\": \"TRADEABLE\",\n                \"epic\": \"NATURALGAS\",\n                \"instrumentType\": \"COMMODITIES\",\n                \"lotSize\": 1,\n                \"high\": 2.798,\n                \"low\": 2.743,\n                \"percentageChange\": 0.8053,\n                \"netChange\": 0.0220,\n                \"bid\": 2.759,\n                \"offer\": 2.764,\n                \"updateTime\": \"2022-04-05T17:41:38.492\",\n                \"updateTimeUTC\": \"2022-04-05T14:41:38.492\",\n                \"delayTime\": 0,\n                \"streamingPricesAvailable\": true,\n                \"scalingFactor\": 1\n            }\n        },\n        {\n            \"position\": {\n                \"contractSize\": 1,\n                \"createdDate\": \"2022-04-05T12:46:10.139\",\n                \"createdDateUTC\": \"2022-04-05T09:46:10.139\",\n                \"dealId\": \"004d0627-0001-54c4-0000-000080560017\",\n                \"dealReference\": \"p_004d0627-0001-54c4-0000-000080560017\",\n                \"workingOrderId\": \"004d0627-0001-54c4-0000-000080560015\",\n                \"size\": 1.0,\n                \"leverage\": 20,\n                \"upl\": -0.80,\n                \"direction\": \"BUY\",\n                \"level\": 3985.1,\n                \"currency\": \"USD\",\n                \"guaranteedStop\": false\n            },\n            \"market\": {\n                \"instrumentName\": \"S&P 500\",\n                \"expiry\": \"2022-02-01\",\n                \"marketStatus\": \"TRADEABLE\",\n                \"epic\": \"US500\",\n                \"instrumentType\": \"INDICES\",\n                \"lotSize\": 1,\n                \"high\": 3984.6,\n                \"low\": 3950.3,\n                \"percentageChange\": -0.0301,\n                \"netChange\": -1.2000,\n                \"bid\": 3984.3,\n                \"offer\": 3985.1,\n                \"updateTime\": \"2022-04-05T17:41:37.991\",\n                \"updateTimeUTC\": \"2022-04-05T14:41:37.991\",\n                \"delayTime\": 0,\n                \"streamingPricesAvailable\": true,\n                \"scalingFactor\": 1\n            }\n        }\n    ]\n}"
 								}
 							]
 						},
@@ -3009,7 +3014,7 @@
 										}
 									],
 									"cookie": [],
-									"body": "{\n    \"position\": {\n        \"contractSize\": 1,\n        \"createdDate\": \"2022-04-06T10:49:52.056\",\n        \"createdDateUTC\": \"2022-04-06T07:49:52.056\",\n        \"dealId\": \"006011e7-0001-54c4-0000-00008056005e\",\n        \"dealReference\": \"p_006011e7-0001-54c4-0000-00008056005e\",\n        \"size\": 1,\n        \"direction\": \"BUY\",\n        \"level\": 24.306,\n        \"currency\": \"USD\",\n        \"guaranteedStop\": false\n    },\n    \"market\": {\n        \"instrumentName\": \"Silver\",\n        \"expiry\": \"-\",\n        \"marketStatus\": \"TRADEABLE\",\n        \"epic\": \"SILVER\",\n        \"instrumentType\": \"COMMODITIES\",\n        \"lotSize\": 50,\n        \"high\": 24.396,\n        \"low\": 24.193,\n        \"percentageChange\": -0.9663,\n        \"netChange\": -0.237,\n        \"bid\": 24.28,\n        \"offer\": 24.3,\n        \"updateTime\": \"2022-04-06T10:53:35.389\",\n        \"updateTimeUTC\": \"2022-04-06T07:53:35.389\",\n        \"delayTime\": 0,\n        \"streamingPricesAvailable\": true,\n        \"scalingFactor\": 1\n    }\n}"
+									"body": "{\n    \"position\": {\n        \"contractSize\": 1,\n        \"createdDate\": \"2022-04-06T10:49:52.056\",\n        \"createdDateUTC\": \"2022-04-06T07:49:52.056\",\n        \"dealId\": \"006011e7-0001-54c4-0000-00008056005e\",\n        \"dealReference\": \"p_006011e7-0001-54c4-0000-00008056005e\",\n        \"workingOrderId\": \"006011e7-0001-54c4-0000-00008056005c\",\n        \"size\": 1.0,\n        \"leverage\": 20,\n        \"upl\": -0.0220,\n        \"direction\": \"BUY\",\n        \"level\": 21.059,\n        \"currency\": \"USD\",\n        \"guaranteedStop\": false\n    },\n    \"market\": {\n        \"instrumentName\": \"Silver\",\n        \"expiry\": \"-\",\n        \"marketStatus\": \"TRADEABLE\",\n        \"epic\": \"SILVER\",\n        \"instrumentType\": \"COMMODITIES\",\n        \"lotSize\": 1,\n        \"high\": 21.167,\n        \"low\": 20.823,\n        \"percentageChange\": 1.8478,\n        \"netChange\": 0.3810,\n        \"bid\": 21.037,\n        \"offer\": 21.057,\n        \"updateTime\": \"2022-04-06T10:53:35.389\",\n        \"updateTimeUTC\": \"2022-04-06T07:53:35.389\",\n        \"delayTime\": 0,\n        \"streamingPricesAvailable\": true,\n        \"scalingFactor\": 1\n    }\n}"
 								},
 								{
 									"name": "Error: Position not found",
@@ -3117,7 +3122,7 @@
 										}
 									],
 									"cookie": [],
-									"body": "{\n    \"errorCode\": \"error.positions.dealId.not-found\"\n}"
+									"body": "{\n    \"errorCode\": \"error.not-found.dealId\"\n}"
 								}
 							]
 						},
@@ -3508,7 +3513,7 @@
 										}
 									],
 									"cookie": [],
-									"body": "{\n    \"errorCode\": \"validation.stoploss.minvalue: 17.146\"\n}"
+									"body": "{\n    \"errorCode\": \"error.invalid.stoploss.minvalue: 17.146\"\n}"
 								},
 								{
 									"name": "Error: Too high take profit value",
@@ -3617,7 +3622,7 @@
 										}
 									],
 									"cookie": [],
-									"body": "{\n    \"errorCode\": \"validation.takeprofit.maxvalue: 31.817\"\n}"
+									"body": "{\n    \"errorCode\": \"error.invalid.takeprofit.maxvalue: 31.817\"\n}"
 								}
 							]
 						},
@@ -3915,7 +3920,7 @@
 										}
 									],
 									"cookie": [],
-									"body": "{\n    \"errorCode\": \"validation.stoploss.maxvalue: 24.302\"\n}"
+									"body": "{\n    \"errorCode\": \"error.invalid.stoploss.maxvalue: 24.302\"\n}"
 								},
 								{
 									"name": "Error: Too low take profit value",
@@ -4032,7 +4037,7 @@
 										}
 									],
 									"cookie": [],
-									"body": "{\n    \"errorCode\": \"validation.takeprofit.minvalue: 24.302\"\n}"
+									"body": "{\n    \"errorCode\": \"error.invalid.takeprofit.minvalue: 24.302\"\n}"
 								},
 								{
 									"name": "Error: Position not found",
@@ -4149,7 +4154,7 @@
 										}
 									],
 									"cookie": [],
-									"body": "{\n    \"errorCode\": \"error.positions.dealId.not-found\"\n}"
+									"body": "{\n    \"errorCode\": \"error.not-found.dealId\"\n}"
 								}
 							]
 						},
@@ -4425,7 +4430,7 @@
 										}
 									],
 									"cookie": [],
-									"body": "{\n    \"errorCode\": \"error.positions.dealId.not-found\"\n}"
+									"body": "{\n    \"errorCode\": \"error.not-found.dealId\"\n}"
 								}
 							]
 						}
@@ -4965,7 +4970,7 @@
 										}
 									],
 									"cookie": [],
-									"body": "{\n    \"errorCode\": \"error.validation.goodtilldate.in.future\"\n}"
+									"body": "{\n    \"errorCode\": \"error.not-in-future.goodTillDate\"\n}"
 								}
 							]
 						},
@@ -5257,7 +5262,7 @@
 										}
 									],
 									"cookie": [],
-									"body": "{\n    \"errorCode\": \"error.workingorders.dealId.not-found\"\n}"
+									"body": "{\n    \"errorCode\": \"error.not-found.dealId\"\n}"
 								}
 							]
 						},
@@ -5524,7 +5529,7 @@
 										}
 									],
 									"cookie": [],
-									"body": "{\n    \"errorCode\": \"error.workingorders.dealId.not-found\"\n}"
+									"body": "{\n    \"errorCode\": \"error.not-found.dealId\"\n}"
 								}
 							]
 						}
@@ -5793,7 +5798,7 @@
 								}
 							],
 							"cookie": [],
-							"body": "{\n    \"errorCode\": \"error.confirms.dealreference.notfound\"\n}"
+							"body": "{\n    \"errorCode\": \"error.not-found.dealReference\"\n}"
 						}
 					]
 				}
@@ -5978,13 +5983,20 @@
 									}
 								],
 								"url": {
-									"raw": "{{url}}/marketnavigation/:nodeId",
+									"raw": "{{url}}/marketnavigation/:nodeId?limit=500",
 									"host": [
 										"{{url}}"
 									],
 									"path": [
 										"marketnavigation",
 										":nodeId"
+									],
+									"query": [
+										{
+											"key": "limit",
+											"value": "500",
+											"description": "The maximum number of the markets in answer. Default = 500"
+										}
 									],
 									"variable": [
 										{
@@ -6110,7 +6122,7 @@
 									"body": "{\n    \"nodes\": [\n        {\n            \"id\": \"hierarchy_v1.commons.most_traded\",\n            \"name\": \"Most Traded\"\n        },\n        {\n            \"id\": \"hierarchy_v1.commons.recently_traded\",\n            \"name\": \"Recently Traded\"\n        },\n        {\n            \"id\": \"hierarchy_v1.commons.new\",\n            \"name\": \"New\"\n        },\n        {\n            \"id\": \"hierarchy_v1.commons.top_gainers\",\n            \"name\": \"Top Risers\"\n        },\n        {\n            \"id\": \"hierarchy_v1.commons.top_losers\",\n            \"name\": \"Top Fallers\"\n        },\n        {\n            \"id\": \"hierarchy_v1.commons.most_volatile\",\n            \"name\": \"Most Volatile\"\n        },\n        {\n            \"id\": \"hierarchy_v1.commons.weekend_trading\",\n            \"name\": \"Weekend Trading\"\n        }\n    ]\n}"
 								},
 								{
-									"name": "Success: List of markets in category",
+									"name": "Success: List of markets in category with limit = 2",
 									"originalRequest": {
 										"method": "GET",
 										"header": [
@@ -6128,13 +6140,20 @@
 											}
 										],
 										"url": {
-											"raw": "{{url}}/marketnavigation/:nodeId",
+											"raw": "{{url}}/marketnavigation/:nodeId?limit=2",
 											"host": [
 												"{{url}}"
 											],
 											"path": [
 												"marketnavigation",
 												":nodeId"
+											],
+											"query": [
+												{
+													"key": "limit",
+													"value": "2",
+													"description": "The maximum number of the markets in answer. Default = 500"
+												}
 											],
 											"variable": [
 												{
@@ -6220,6 +6239,121 @@
 									],
 									"cookie": [],
 									"body": "{\n    \"nodes\": [],\n    \"markets\": [\n        {\n            \"delayTime\": 0,\n            \"epic\": \"NATURALGAS\",\n            \"netChange\": 0.389,\n            \"lotSize\": 1,\n            \"expiry\": \"-\",\n            \"instrumentType\": \"COMMODITIES\",\n            \"instrumentName\": \"Natural Gas\",\n            \"high\": 6.212,\n            \"low\": 6.073,\n            \"percentageChange\": 6.7057,\n            \"updateTime\": \"2022-04-06T13:13:14.765\",\n            \"updateTimeUTC\": \"2022-04-06T11:13:14.765\",\n            \"bid\": 6.223,\n            \"offer\": 6.229,\n            \"streamingPricesAvailable\": true,\n            \"marketStatus\": \"TRADEABLE\",\n            \"scalingFactor\": 1\n        },\n        {\n            \"delayTime\": 0,\n            \"epic\": \"SILVER\",\n            \"netChange\": -0.266,\n            \"lotSize\": 1,\n            \"expiry\": \"-\",\n            \"instrumentType\": \"COMMODITIES\",\n            \"instrumentName\": \"Silver\",\n            \"high\": 24.405,\n            \"low\": 24.193,\n            \"percentageChange\": -1.0846,\n            \"updateTime\": \"2022-04-06T13:13:14.069\",\n            \"updateTimeUTC\": \"2022-04-06T11:13:14.069\",\n            \"bid\": 24.23,\n            \"offer\": 24.25,\n            \"streamingPricesAvailable\": true,\n            \"marketStatus\": \"TRADEABLE\",\n            \"scalingFactor\": 1\n        }\n    ]\n}"
+								},
+								{
+									"name": "Error: Invalid limit parameter",
+									"originalRequest": {
+										"method": "GET",
+										"header": [
+											{
+												"key": "X-SECURITY-TOKEN",
+												"value": "{{X-SECURITY-TOKEN}}",
+												"type": "text",
+												"description": "Account token identifying the client's current account"
+											},
+											{
+												"key": "CST",
+												"value": "{{CST}}",
+												"type": "text",
+												"description": "Access token identifying the client"
+											}
+										],
+										"url": {
+											"raw": "{{url}}/marketnavigation/:nodeId?limit=0",
+											"host": [
+												"{{url}}"
+											],
+											"path": [
+												"marketnavigation",
+												":nodeId"
+											],
+											"query": [
+												{
+													"key": "limit",
+													"value": "0",
+													"description": "The maximum number of the markets in answer. Default = 500"
+												}
+											],
+											"variable": [
+												{
+													"key": "nodeId",
+													"value": "hierarchy_v1.commodities",
+													"description": "Identifier of the node to browse"
+												}
+											]
+										}
+									},
+									"status": "Bad Request",
+									"code": 400,
+									"_postman_previewlanguage": "json",
+									"header": [
+										{
+											"key": "Date",
+											"value": "Wed, 06 Apr 2022 11:13:16 GMT"
+										},
+										{
+											"key": "Content-Type",
+											"value": "application/json"
+										},
+										{
+											"key": "Transfer-Encoding",
+											"value": "chunked"
+										},
+										{
+											"key": "Connection",
+											"value": "keep-alive"
+										},
+										{
+											"key": "Vary",
+											"value": "Origin"
+										},
+										{
+											"key": "Vary",
+											"value": "Access-Control-Request-Method"
+										},
+										{
+											"key": "Vary",
+											"value": "Access-Control-Request-Headers"
+										},
+										{
+											"key": "Content-Security-Policy",
+											"value": "connect-src 'self'"
+										},
+										{
+											"key": "Access-Control-Expose-Headers",
+											"value": "CST, X-SECURITY-TOKEN"
+										},
+										{
+											"key": "Content-Disposition",
+											"value": "inline;filename=f.txt"
+										},
+										{
+											"key": "X-Content-Type-Options",
+											"value": "nosniff"
+										},
+										{
+											"key": "X-XSS-Protection",
+											"value": "1; mode=block"
+										},
+										{
+											"key": "Cache-Control",
+											"value": "no-cache, no-store, max-age=0, must-revalidate"
+										},
+										{
+											"key": "Pragma",
+											"value": "no-cache"
+										},
+										{
+											"key": "Expires",
+											"value": "0"
+										},
+										{
+											"key": "X-Frame-Options",
+											"value": "DENY"
+										}
+									],
+									"cookie": [],
+									"body": "{\n    \"errorCode\": \"error.invalid.limit\"\n}"
 								}
 							]
 						},
@@ -6488,7 +6622,7 @@
 										}
 									],
 									"cookie": [],
-									"body": "{\n    \"marketDetails\": [\n        {\n            \"instrument\": {\n                \"epic\": \"SILVER\",\n                \"expiry\": \"-\",\n                \"name\": \"Silver\",\n                \"lotSize\": 1,\n                \"type\": \"COMMODITIES\",\n                \"controlledRiskAllowed\": true,\n                \"streamingPricesAvailable\": true,\n                \"currency\": \"USD\",\n                \"marginFactor\": 10,\n                \"marginFactorUnit\": \"PERCENTAGE\",\n                \"openingHours\": \"UTC; Mon - 21:00, 22:05 -; Tue - 21:00, 22:05 -; Wed - 21:00, 22:05 -; Thu - 21:00, 22:05 -; Fri - 21:00; Sun 22:05 -\",\n                \"country\": \"\"\n            },\n            \"dealingRules\": {\n                \"minStepDistance\": {\n                    \"unit\": \"POINTS\",\n                    \"value\": 0.001\n                },\n                \"minDealSize\": {\n                    \"unit\": \"POINTS\",\n                    \"value\": 0.1\n                },\n                \"minControlledRiskStopDistance\": {\n                    \"unit\": \"PERCENTAGE\",\n                    \"value\": 2\n                },\n                \"minNormalStopOrLimitDistance\": {\n                    \"unit\": \"PERCENTAGE\",\n                    \"value\": 0.01\n                },\n                \"maxStopOrLimitDistance\": {\n                    \"unit\": \"PERCENTAGE\",\n                    \"value\": 60\n                },\n                \"marketOrderPreference\": \"AVAILABLE_DEFAULT_ON\",\n                \"trailingStopsPreference\": \"NOT_AVAILABLE\"\n            },\n            \"snapshot\": {\n                \"marketStatus\": \"TRADEABLE\",\n                \"netChange\": -0.335,\n                \"percentageChange\": -1.3659,\n                \"updateTime\": \"2022-04-06T13:27:10.153\",\n                \"delayTime\": 0,\n                \"bid\": 24.181,\n                \"offer\": 24.201,\n                \"high\": 24.405,\n                \"low\": 24.159,\n                \"decimalPlacesFactor\": 3,\n                \"scalingFactor\": 1\n            }\n        },\n        {\n            \"instrument\": {\n                \"epic\": \"NATURALGAS\",\n                \"expiry\": \"-\",\n                \"name\": \"Natural Gas\",\n                \"lotSize\": 1,\n                \"type\": \"COMMODITIES\",\n                \"controlledRiskAllowed\": true,\n                \"streamingPricesAvailable\": true,\n                \"currency\": \"USD\",\n                \"marginFactor\": 10,\n                \"marginFactorUnit\": \"PERCENTAGE\",\n                \"openingHours\": \"UTC; Mon - 21:00, 22:05 -; Tue - 21:00, 22:05 -; Wed - 21:00, 22:05 -; Thu - 21:00, 22:05 -; Fri - 21:00; Sun 22:05 -\",\n                \"country\": \"\"\n            },\n            \"dealingRules\": {\n                \"minStepDistance\": {\n                    \"unit\": \"POINTS\",\n                    \"value\": 0.001\n                },\n                \"minDealSize\": {\n                    \"unit\": \"POINTS\",\n                    \"value\": 0.1\n                },\n                \"minControlledRiskStopDistance\": {\n                    \"unit\": \"PERCENTAGE\",\n                    \"value\": 2\n                },\n                \"minNormalStopOrLimitDistance\": {\n                    \"unit\": \"PERCENTAGE\",\n                    \"value\": 0.1\n                },\n                \"maxStopOrLimitDistance\": {\n                    \"unit\": \"PERCENTAGE\",\n                    \"value\": 30\n                },\n                \"marketOrderPreference\": \"AVAILABLE_DEFAULT_ON\",\n                \"trailingStopsPreference\": \"NOT_AVAILABLE\"\n            },\n            \"snapshot\": {\n                \"marketStatus\": \"TRADEABLE\",\n                \"netChange\": 0.423,\n                \"percentageChange\": 7.2918,\n                \"updateTime\": \"2022-04-06T13:27:11.890\",\n                \"delayTime\": 0,\n                \"bid\": 6.294,\n                \"offer\": 6.3,\n                \"high\": 6.308,\n                \"low\": 6.073,\n                \"decimalPlacesFactor\": 3,\n                \"scalingFactor\": 1\n            }\n        }\n    ]\n}"
+									"body": "{\n    \"marketDetails\": [\n        {\n            \"instrument\": {\n                \"epic\": \"SILVER\",\n                \"expiry\": \"-\",\n                \"name\": \"Silver\",\n                \"lotSize\": 1,\n                \"type\": \"COMMODITIES\",\n                \"controlledRiskAllowed\": true,\n                \"streamingPricesAvailable\": true,\n                \"currency\": \"USD\",\n                \"marginFactor\": 10,\n                \"marginFactorUnit\": \"PERCENTAGE\",\n                \"openingHours\": {\n                    \"mon\": [\n                        \"00:00 - 22:00\",\n                        \"23:05 - 00:00\"\n                    ],\n                    \"tue\": [\n                        \"00:00 - 22:00\",\n                        \"23:05 - 00:00\"\n                    ],\n                    \"wed\": [\n                        \"00:00 - 22:00\",\n                        \"23:05 - 00:00\"\n                    ],\n                    \"thu\": [\n                        \"00:00 - 22:00\",\n                        \"23:05 - 00:00\"\n                    ],\n                    \"fri\": [\n                        \"00:00 - 22:00\"\n                    ],\n                    \"sat\": [],\n                    \"sun\": [\n                        \"23:05 - 00:00\"\n                    ],\n                    \"zone\": \"UTC\"\n                },\n                \"country\": \"\"\n            },\n            \"dealingRules\": {\n                \"minStepDistance\": {\n                    \"unit\": \"POINTS\",\n                    \"value\": 0.001\n                },\n                \"minDealSize\": {\n                    \"unit\": \"POINTS\",\n                    \"value\": 0.1\n                },\n                \"minControlledRiskStopDistance\": {\n                    \"unit\": \"PERCENTAGE\",\n                    \"value\": 2\n                },\n                \"minNormalStopOrLimitDistance\": {\n                    \"unit\": \"PERCENTAGE\",\n                    \"value\": 0.01\n                },\n                \"maxStopOrLimitDistance\": {\n                    \"unit\": \"PERCENTAGE\",\n                    \"value\": 60\n                },\n                \"marketOrderPreference\": \"AVAILABLE_DEFAULT_ON\",\n                \"trailingStopsPreference\": \"NOT_AVAILABLE\"\n            },\n            \"snapshot\": {\n                \"marketStatus\": \"TRADEABLE\",\n                \"netChange\": -0.335,\n                \"percentageChange\": -1.3659,\n                \"updateTime\": \"2022-04-06T13:27:10.153\",\n                \"delayTime\": 0,\n                \"bid\": 24.181,\n                \"offer\": 24.201,\n                \"high\": 24.405,\n                \"low\": 24.159,\n                \"decimalPlacesFactor\": 3,\n                \"scalingFactor\": 1\n            }\n        },\n        {\n            \"instrument\": {\n                \"epic\": \"NATURALGAS\",\n                \"expiry\": \"-\",\n                \"name\": \"Natural Gas\",\n                \"lotSize\": 1,\n                \"type\": \"COMMODITIES\",\n                \"controlledRiskAllowed\": true,\n                \"streamingPricesAvailable\": true,\n                \"currency\": \"USD\",\n                \"marginFactor\": 10,\n                \"marginFactorUnit\": \"PERCENTAGE\",\n                \"openingHours\": {\n                    \"mon\": [\n                        \"01:00 - 23:00\"\n                    ],\n                    \"tue\": [\n                        \"01:00 - 23:00\"\n                    ],\n                    \"wed\": [\n                        \"01:00 - 23:00\"\n                    ],\n                    \"thu\": [\n                        \"01:00 - 23:00\"\n                    ],\n                    \"fri\": [\n                        \"01:00 - 23:00\"\n                    ],\n                    \"sat\": [],\n                    \"sun\": [],\n                    \"zone\": \"UTC\"\n                },\n                \"country\": \"\"\n            },\n            \"dealingRules\": {\n                \"minStepDistance\": {\n                    \"unit\": \"POINTS\",\n                    \"value\": 0.001\n                },\n                \"minDealSize\": {\n                    \"unit\": \"POINTS\",\n                    \"value\": 0.1\n                },\n                \"minControlledRiskStopDistance\": {\n                    \"unit\": \"PERCENTAGE\",\n                    \"value\": 2\n                },\n                \"minNormalStopOrLimitDistance\": {\n                    \"unit\": \"PERCENTAGE\",\n                    \"value\": 0.1\n                },\n                \"maxStopOrLimitDistance\": {\n                    \"unit\": \"PERCENTAGE\",\n                    \"value\": 30\n                },\n                \"marketOrderPreference\": \"AVAILABLE_DEFAULT_ON\",\n                \"trailingStopsPreference\": \"NOT_AVAILABLE\"\n            },\n            \"snapshot\": {\n                \"marketStatus\": \"TRADEABLE\",\n                \"netChange\": 0.423,\n                \"percentageChange\": 7.2918,\n                \"updateTime\": \"2022-04-06T13:27:11.890\",\n                \"delayTime\": 0,\n                \"bid\": 6.294,\n                \"offer\": 6.3,\n                \"high\": 6.308,\n                \"low\": 6.073,\n                \"decimalPlacesFactor\": 3,\n                \"scalingFactor\": 1\n            }\n        }\n    ]\n}"
 								},
 								{
 									"name": "Error: Empty searchTerm parameter",
@@ -6595,7 +6729,7 @@
 										}
 									],
 									"cookie": [],
-									"body": "{\n    \"errorCode\": \"validation.null-not-allowed.searchTerm\"\n}"
+									"body": "{\n    \"errorCode\": \"error.null.searchTerm\"\n}"
 								},
 								{
 									"name": "Error: Epics parameter not specified or empty",
@@ -6695,7 +6829,7 @@
 										}
 									],
 									"cookie": [],
-									"body": "{\n    \"errorCode\": \"validation.null-not-allowed.request.epic\"\n}"
+									"body": "{\n    \"errorCode\": \"error.null.epic\"\n}"
 								}
 							]
 						},
@@ -6843,7 +6977,7 @@
 										}
 									],
 									"cookie": [],
-									"body": "{\n    \"instrument\": {\n        \"epic\": \"SILVER\",\n        \"expiry\": \"-\",\n        \"name\": \"Silver\",\n        \"lotSize\": 1,\n        \"type\": \"COMMODITIES\",\n        \"controlledRiskAllowed\": true,\n        \"streamingPricesAvailable\": true,\n        \"currency\": \"USD\",\n        \"marginFactor\": 10,\n        \"marginFactorUnit\": \"PERCENTAGE\",\n        \"openingHours\": \"UTC; Mon - 21:00, 22:05 -; Tue - 21:00, 22:05 -; Wed - 21:00, 22:05 -; Thu - 21:00, 22:05 -; Fri - 21:00; Sun 22:05 -\",\n        \"country\": \"\"\n    },\n    \"dealingRules\": {\n        \"minStepDistance\": {\n            \"unit\": \"POINTS\",\n            \"value\": 0.001\n        },\n        \"minDealSize\": {\n            \"unit\": \"POINTS\",\n            \"value\": 0.1\n        },\n        \"minControlledRiskStopDistance\": {\n            \"unit\": \"PERCENTAGE\",\n            \"value\": 2\n        },\n        \"minNormalStopOrLimitDistance\": {\n            \"unit\": \"PERCENTAGE\",\n            \"value\": 0.01\n        },\n        \"maxStopOrLimitDistance\": {\n            \"unit\": \"PERCENTAGE\",\n            \"value\": 60\n        },\n        \"marketOrderPreference\": \"AVAILABLE_DEFAULT_ON\",\n        \"trailingStopsPreference\": \"NOT_AVAILABLE\"\n    },\n    \"snapshot\": {\n        \"marketStatus\": \"TRADEABLE\",\n        \"netChange\": -0.313,\n        \"percentageChange\": -1.2762,\n        \"updateTime\": \"2022-04-06T13:17:42.113\",\n        \"delayTime\": 0,\n        \"bid\": 24.203,\n        \"offer\": 24.223,\n        \"high\": 24.405,\n        \"low\": 24.193,\n        \"decimalPlacesFactor\": 3,\n        \"scalingFactor\": 1\n    }\n}"
+									"body": "{\n    \"instrument\": {\n        \"epic\": \"SILVER\",\n        \"expiry\": \"-\",\n        \"name\": \"Silver\",\n        \"lotSize\": 1,\n        \"type\": \"COMMODITIES\",\n        \"controlledRiskAllowed\": true,\n        \"streamingPricesAvailable\": true,\n        \"currency\": \"USD\",\n        \"marginFactor\": 10,\n        \"marginFactorUnit\": \"PERCENTAGE\",\n        \"openingHours\": {\n            \"mon\": [\n                \"00:00 - 22:00\",\n                \"23:05 - 00:00\"\n            ],\n            \"tue\": [\n                \"00:00 - 22:00\",\n                \"23:05 - 00:00\"\n            ],\n            \"wed\": [\n                \"00:00 - 22:00\",\n                \"23:05 - 00:00\"\n            ],\n            \"thu\": [\n                \"00:00 - 22:00\",\n                \"23:05 - 00:00\"\n            ],\n            \"fri\": [\n                \"00:00 - 22:00\"\n            ],\n            \"sat\": [],\n            \"sun\": [\n                \"23:05 - 00:00\"\n            ],\n            \"zone\": \"UTC\"\n        },\n        \"country\": \"\"\n    },\n    \"dealingRules\": {\n        \"minStepDistance\": {\n            \"unit\": \"POINTS\",\n            \"value\": 0.001\n        },\n        \"minDealSize\": {\n            \"unit\": \"POINTS\",\n            \"value\": 0.1\n        },\n        \"minControlledRiskStopDistance\": {\n            \"unit\": \"PERCENTAGE\",\n            \"value\": 2\n        },\n        \"minNormalStopOrLimitDistance\": {\n            \"unit\": \"PERCENTAGE\",\n            \"value\": 0.01\n        },\n        \"maxStopOrLimitDistance\": {\n            \"unit\": \"PERCENTAGE\",\n            \"value\": 60\n        },\n        \"marketOrderPreference\": \"AVAILABLE_DEFAULT_ON\",\n        \"trailingStopsPreference\": \"NOT_AVAILABLE\"\n    },\n    \"snapshot\": {\n        \"marketStatus\": \"TRADEABLE\",\n        \"netChange\": -0.313,\n        \"percentageChange\": -1.2762,\n        \"updateTime\": \"2022-04-06T13:17:42.113\",\n        \"delayTime\": 0,\n        \"bid\": 24.203,\n        \"offer\": 24.223,\n        \"high\": 24.405,\n        \"low\": 24.193,\n        \"decimalPlacesFactor\": 3,\n        \"scalingFactor\": 1\n    }\n}"
 								},
 								{
 									"name": "Error: Market not found",
@@ -6951,7 +7085,7 @@
 										}
 									],
 									"cookie": [],
-									"body": "{\n    \"errorCode\": \"error.epic.not-found\"\n}"
+									"body": "{\n    \"errorCode\": \"error.not-found.epic\"\n}"
 								}
 							]
 						}
@@ -7002,7 +7136,7 @@
 										{
 											"key": "resolution",
 											"value": "MINUTE",
-											"description": "Defines the resolution of requested prices. Possible values are MINUTE, MINUTE_5, MINUTE_10, MINUTE_15, MINUTE_30, HOUR, HOUR_4, DAY, WEEK"
+											"description": "Defines the resolution of requested prices. Possible values are MINUTE, MINUTE_5, MINUTE_15, MINUTE_30, HOUR, HOUR_4, DAY, WEEK"
 										},
 										{
 											"key": "max",
@@ -7158,7 +7292,7 @@
 											}
 										],
 										"url": {
-											"raw": "{{url}}/prices/:epic?resolution=MINUTE_10&max=4&from=2022-02-24T00:00:00",
+											"raw": "{{url}}/prices/:epic?resolution=MINUTE_15&max=4&from=2022-02-24T00:00:00",
 											"host": [
 												"{{url}}"
 											],
@@ -7169,8 +7303,8 @@
 											"query": [
 												{
 													"key": "resolution",
-													"value": "MINUTE_10",
-													"description": "Defines the resolution of requested prices. Possible values are MINUTE, MINUTE_5, MINUTE_10, MINUTE_15, MINUTE_30, HOUR, HOUR_4, DAY, WEEK"
+													"value": "MINUTE_15",
+													"description": "Defines the resolution of requested prices. Possible values are MINUTE, MINUTE_5, MINUTE_15, MINUTE_30, HOUR, HOUR_4, DAY, WEEK"
 												},
 												{
 													"key": "max",
@@ -7262,7 +7396,7 @@
 										}
 									],
 									"cookie": [],
-									"body": "{\n    \"prices\": [\n        {\n            \"snapshotTime\": \"2022-02-24T01:00:00\",\n            \"snapshotTimeUTC\": \"2022-02-24T00:00:00\",\n            \"openPrice\": {\n                \"bid\": 24.541,\n                \"ask\": 24.561\n            },\n            \"closePrice\": {\n                \"bid\": 24.531,\n                \"ask\": 24.551\n            },\n            \"highPrice\": {\n                \"bid\": 24.557,\n                \"ask\": 24.577\n            },\n            \"lowPrice\": {\n                \"bid\": 24.524,\n                \"ask\": 24.544\n            },\n            \"lastTradedVolume\": 580\n        },\n        {\n            \"snapshotTime\": \"2022-02-24T01:10:00\",\n            \"snapshotTimeUTC\": \"2022-02-24T00:10:00\",\n            \"openPrice\": {\n                \"bid\": 24.53,\n                \"ask\": 24.55\n            },\n            \"closePrice\": {\n                \"bid\": 24.514,\n                \"ask\": 24.534\n            },\n            \"highPrice\": {\n                \"bid\": 24.534,\n                \"ask\": 24.554\n            },\n            \"lowPrice\": {\n                \"bid\": 24.51,\n                \"ask\": 24.53\n            },\n            \"lastTradedVolume\": 539\n        },\n        {\n            \"snapshotTime\": \"2022-02-24T01:20:00\",\n            \"snapshotTimeUTC\": \"2022-02-24T00:20:00\",\n            \"openPrice\": {\n                \"bid\": 24.513,\n                \"ask\": 24.533\n            },\n            \"closePrice\": {\n                \"bid\": 24.532,\n                \"ask\": 24.552\n            },\n            \"highPrice\": {\n                \"bid\": 24.561,\n                \"ask\": 24.581\n            },\n            \"lowPrice\": {\n                \"bid\": 24.513,\n                \"ask\": 24.533\n            },\n            \"lastTradedVolume\": 744\n        },\n        {\n            \"snapshotTime\": \"2022-02-24T01:30:00\",\n            \"snapshotTimeUTC\": \"2022-02-24T00:30:00\",\n            \"openPrice\": {\n                \"bid\": 24.531,\n                \"ask\": 24.551\n            },\n            \"closePrice\": {\n                \"bid\": 24.572,\n                \"ask\": 24.592\n            },\n            \"highPrice\": {\n                \"bid\": 24.576,\n                \"ask\": 24.596\n            },\n            \"lowPrice\": {\n                \"bid\": 24.531,\n                \"ask\": 24.551\n            },\n            \"lastTradedVolume\": 975\n        }\n    ],\n    \"instrumentType\": \"COMMODITIES\"\n}"
+									"body": "{\n    \"prices\": [\n        {\n            \"snapshotTime\": \"2022-02-24T01:00:00\",\n            \"snapshotTimeUTC\": \"2022-02-24T00:00:00\",\n            \"openPrice\": {\n                \"bid\": 24.541,\n                \"ask\": 24.561\n            },\n            \"closePrice\": {\n                \"bid\": 24.527,\n                \"ask\": 24.547\n            },\n            \"highPrice\": {\n                \"bid\": 24.557,\n                \"ask\": 24.577\n            },\n            \"lowPrice\": {\n                \"bid\": 24.522,\n                \"ask\": 24.542\n            },\n            \"lastTradedVolume\": 858\n        },\n        {\n            \"snapshotTime\": \"2022-02-24T01:15:00\",\n            \"snapshotTimeUTC\": \"2022-02-24T00:15:00\",\n            \"openPrice\": {\n                \"bid\": 24.526,\n                \"ask\": 24.546\n            },\n            \"closePrice\": {\n                \"bid\": 24.532,\n                \"ask\": 24.552\n            },\n            \"highPrice\": {\n                \"bid\": 24.561,\n                \"ask\": 24.581\n            },\n            \"lowPrice\": {\n                \"bid\": 24.510,\n                \"ask\": 24.530\n            },\n            \"lastTradedVolume\": 1005\n        },\n        {\n            \"snapshotTime\": \"2022-02-24T01:30:00\",\n            \"snapshotTimeUTC\": \"2022-02-24T00:30:00\",\n            \"openPrice\": {\n                \"bid\": 24.531,\n                \"ask\": 24.551\n            },\n            \"closePrice\": {\n                \"bid\": 24.570,\n                \"ask\": 24.590\n            },\n            \"highPrice\": {\n                \"bid\": 24.578,\n                \"ask\": 24.598\n            },\n            \"lowPrice\": {\n                \"bid\": 24.531,\n                \"ask\": 24.551\n            },\n            \"lastTradedVolume\": 1214\n        },\n        {\n            \"snapshotTime\": \"2022-02-24T01:45:00\",\n            \"snapshotTimeUTC\": \"2022-02-24T00:45:00\",\n            \"openPrice\": {\n                \"bid\": 24.569,\n                \"ask\": 24.589\n            },\n            \"closePrice\": {\n                \"bid\": 24.583,\n                \"ask\": 24.603\n            },\n            \"highPrice\": {\n                \"bid\": 24.587,\n                \"ask\": 24.607\n            },\n            \"lowPrice\": {\n                \"bid\": 24.561,\n                \"ask\": 24.581\n            },\n            \"lastTradedVolume\": 771\n        }\n    ],\n    \"instrumentType\": \"COMMODITIES\"\n}"
 								},
 								{
 									"name": "Error: Invalid resolution parameter",
@@ -7295,7 +7429,7 @@
 												{
 													"key": "resolution",
 													"value": "MINUTE_3",
-													"description": "Defines the resolution of requested prices. Possible values are MINUTE, MINUTE_5, MINUTE_10, MINUTE_15, MINUTE_30, HOUR, HOUR_4, DAY, WEEK"
+													"description": "Defines the resolution of requested prices. Possible values are MINUTE, MINUTE_5, MINUTE_15, MINUTE_30, HOUR, HOUR_4, DAY, WEEK"
 												}
 											],
 											"variable": [
@@ -7648,7 +7782,7 @@
 										}
 									],
 									"cookie": [],
-									"body": "{\n    \"errorCode\": \"error.epic.not-found\"\n}"
+									"body": "{\n    \"errorCode\": \"error.not-found.epic\"\n}"
 								}
 							]
 						},
@@ -7904,7 +8038,7 @@
 										}
 									],
 									"cookie": [],
-									"body": "{\n    \"errorCode\": \"error.epic.not-found\"\n}"
+									"body": "{\n    \"errorCode\": \"error.not-found.epic\"\n}"
 								}
 							]
 						}
@@ -8695,7 +8829,7 @@
 								}
 							],
 							"cookie": [],
-							"body": "{\n    \"errorCode\": \"validation.size.createwatchlistrequest.name\"\n}"
+							"body": "{\n    \"errorCode\": \"error.size.createwatchlistrequest.name\"\n}"
 						}
 					]
 				},
@@ -8989,7 +9123,7 @@
 								}
 							],
 							"cookie": [],
-							"body": "{\n    \"errorCode\": \"error.epic.not-found\"\n}"
+							"body": "{\n    \"errorCode\": \"error.not-found.epic\"\n}"
 						}
 					]
 				},
@@ -9274,7 +9408,7 @@
 								}
 							],
 							"cookie": [],
-							"body": "{\n    \"errorCode\": \"error.watchlists.market.epic.not-found\"\n}"
+							"body": "{\n    \"errorCode\": \"error.not-found.epic\"\n}"
 						}
 					]
 				},
@@ -9541,7 +9675,7 @@
 								}
 							],
 							"cookie": [],
-							"body": "{\n    \"errorCode\": \"error.watchlists.management.watchlist-not-found\"\n}"
+							"body": "{\n    \"errorCode\": \"error.not-found.watchlist\"\n}"
 						}
 					]
 				}
